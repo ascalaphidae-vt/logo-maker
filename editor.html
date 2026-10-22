@@ -1,9 +1,67 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{font-family:system-ui,sans-serif;color:#202638;margin:0;padding:14px;background:#fff}h3{margin:5px 0 12px}.layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:20px}.panel{display:grid;gap:9px;align-content:start}.field{display:grid;gap:3px;font-size:13px}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;padding:7px;border:1px solid #ccd1da;border-radius:7px}input[type=color]{padding:2px;height:38px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:9px}button{border:0;border-radius:8px;padding:10px 12px;background:#4646c8;color:white;cursor:pointer}button.secondary{background:#e9e9f9;color:#24245e}.stage{min-width:0}.preview{border:1px solid #ddd;border-radius:12px;background-color:#eee;background-image:linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%);background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0;overflow:hidden}canvas{display:block;width:100%;height:auto}.note{font-size:12px;color:#555;line-height:1.6}.status{font-size:12px;color:#785400}@media(max-width:760px){.layout{grid-template-columns:1fr}}
-</style></head><body><div class="layout"><section class="panel"><h3>ロゴ編集</h3><label class="field">文字<textarea id="title" rows="2">参加型配信</textarea></label><label class="field">テンプレート<select id="preset"><option value="candy">キャンディ</option><option value="ocean">ゲームブルー</option><option value="mint">ミント</option><option value="sunset">サンセット</option><option value="night">ネオン</option></select></label><button id="fonts">PC内のフォントを取得</button><label class="field">フォント<select id="font"><option value="sans-serif">標準（仮）</option></select></label><div class="status" id="status">フォント取得ボタンを押してください。</div><div class="pair"><label class="field">文字上色<input id="top" type="color" value="#fff58c"></label><label class="field">文字下色<input id="bottom" type="color" value="#ff63b3"></label><label class="field">内側の縁<input id="inner" type="color" value="#ffffff"></label><label class="field">外側の縁<input id="outer" type="color" value="#5133a7"></label></div><label class="field">文字サイズ <span id="sizeV"></span><input id="size" type="range" min="45" max="200" value="120"></label><label class="field">内側の縁の太さ <span id="inV"></span><input id="inWidth" type="range" min="0" max="22" value="9"></label><label class="field">外側の縁の太さ <span id="outV"></span><input id="outWidth" type="range" min="0" max="35" value="15"></label><label class="field">文字間隔 <span id="spacingV"></span><input id="spacing" type="range" min="-8" max="18" value="0"></label><label class="field">立体影の距離 <span id="shadowV"></span><input id="shadow" type="range" min="0" max="35" value="9"></label><label class="field"><span><input id="stars" type="checkbox" checked style="width:auto"> 星の装飾を追加</span></label><button id="save">透過PNGを保存</button><button id="saveJson" class="secondary">設定JSONを保存</button><label class="field">設定JSONを読み込む<input id="loadJson" type="file" accept=".json,application/json"></label></section><section class="stage"><h3>プレビュー</h3><div class="preview"><canvas id="canvas" width="1200" height="630"></canvas></div><p class="note">出力は1200×630pxの透過PNG。フォントの選択とPNG生成はブラウザ内で処理します。<br>※ Streamlit埋め込み画面では、ブラウザの権限設定によってローカルフォント取得がブロックされる場合があります。その場合はフォント取得の検証結果として表示します。</p></section></div><script>
-const ids=['title','preset','font','top','bottom','inner','outer','size','inWidth','outWidth','spacing','shadow','stars'];const $=id=>document.getElementById(id);const canvas=$('canvas'),ctx=canvas.getContext('2d');let loadedFonts=[];const presets={candy:['#fff58c','#ff63b3','#ffffff','#5133a7'],ocean:['#9ffbff','#396dff','#ffffff','#19174e'],mint:['#f9ff9d','#22c8ad','#ffffff','#087b84'],sunset:['#ffe64b','#ff684c','#ffffff','#70316e'],night:['#f8a7ff','#8d5aff','#20204b','#090b24']};
-function settings(){let s={};ids.forEach(id=>s[id]= $(id).type==='checkbox'?$(id).checked:$(id).value);return s}
-function draw(){let s=settings();['size','inWidth','outWidth','spacing','shadow'].forEach((id,i)=>$( ['sizeV','inV','outV','spacingV','shadowV'][i]).textContent=s[id]);ctx.clearRect(0,0,1200,630);const lines=s.title.split('\n').slice(0,4);const size=+s.size,sp=+s.spacing;let family=s.font==='sans-serif'?'sans-serif':JSON.stringify(s.font);ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.miterLimit=2;ctx.font=`900 ${size}px ${family}`;const letterWidth=(line)=>{let chars=[...line];return chars.reduce((v,ch)=>v+ctx.measureText(ch).width,0)+Math.max(0,chars.length-1)*sp};let widest=Math.max(1,...lines.map(letterWidth));let scale=Math.min(1,1040/widest,490/(lines.length*size*1.22));ctx.save();ctx.translate(600,315);ctx.scale(scale,scale);const lineHeight=size*1.22;lines.forEach((line,i)=>{const y=(i-(lines.length-1)/2)*lineHeight;const chars=[...line];let x=-letterWidth(line)/2;const glyphs=chars.map(ch=>{let w=ctx.measureText(ch).width;let pos=x+w/2;x+=w+sp;return [ch,pos]});const paint=(fill,stroke,width,dx=0,dy=0)=>{ctx.fillStyle=fill;ctx.strokeStyle=stroke;ctx.lineWidth=width;glyphs.forEach(([ch,px])=>{if(width>0)ctx.strokeText(ch,px+dx,y+dy);ctx.fillText(ch,px+dx,y+dy)})};if(+s.shadow){paint('#25204e','#25204e',2*(+s.outWidth + +s.inWidth)+8,+s.shadow,+s.shadow)}paint(s.outer,s.outer,2*(+s.outWidth + +s.inWidth));paint(s.inner,s.inner,2*(+s.inWidth));let grad=ctx.createLinearGradient(0,y-size*.5,0,y+size*.55);grad.addColorStop(0,s.top);grad.addColorStop(1,s.bottom);paint(grad,grad,0)});ctx.restore();if(s.stars){ctx.fillStyle=s.top;for(const [x,y,r] of [[105,120,23],[1065,140,17],[110,495,14],[1080,505,28]]){ctx.beginPath();ctx.moveTo(x,y-r*1.7);ctx.quadraticCurveTo(x+r*.22,y-r*.22,x+r,y);ctx.quadraticCurveTo(x+r*.22,y+r*.22,x,y+r*1.7);ctx.quadraticCurveTo(x-r*.22,y+r*.22,x-r,y);ctx.quadraticCurveTo(x-r*.22,y-r*.22,x,y-r*1.7);ctx.fill()}}}
-ids.forEach(id=>$(id).addEventListener('input',draw));$('preset').addEventListener('change',()=>{['top','bottom','inner','outer'].forEach((id,i)=>$(id).value=presets[$('preset').value][i]);draw()});$('save').onclick=()=>{const a=document.createElement('a');a.download='pop-logo.png';a.href=canvas.toDataURL('image/png');a.click()};function download(data,name,type){let url=URL.createObjectURL(new Blob([data],{type}));let a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}$('saveJson').onclick=()=>download(JSON.stringify(settings(),null,2),'pop-logo-settings.json','application/json');$('loadJson').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let s=JSON.parse(await file.text());ids.forEach(id=>{if(s[id]!==undefined && id!=='font')$(id).type==='checkbox'?$(id).checked=!!s[id]:$(id).value=s[id]});if(s.font && [...$('font').options].some(o=>o.value===s.font))$('font').value=s.font;draw()}catch(err){alert('JSONの読み込みに失敗: '+err.message)}};
-$('fonts').onclick=async()=>{let status=$('status');if(!('queryLocalFonts' in window)){status.textContent='この環境では Local Font Access API が利用できません（ブラウザまたは埋め込み権限の制限）。';return}try{status.textContent='アクセス許可を確認中…';let fonts=await window.queryLocalFonts();loadedFonts=fonts;let names=[...new Set(fonts.map(f=>f.family))].sort((a,b)=>a.localeCompare(b,'ja'));let select=$('font');select.innerHTML='<option value="sans-serif">標準</option>';names.forEach(name=>{let o=document.createElement('option');o.value=name;o.textContent=name;select.appendChild(o)});status.textContent=`${names.length}ファミリーを取得しました。`;draw()}catch(err){status.textContent='フォント取得に失敗: '+err.name+' / '+err.message}};draw();
-</script></body></html>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pop Logo Studio</title>
+  <link rel="stylesheet" href="web/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon">P<span>✦</span></span><div><h1>Pop Logo Studio</h1><p>文字を、配信の主役に。</p></div></div>
+    <div class="actions"><button id="undo" class="quiet" title="Ctrl / Cmd + Z">↶ 元に戻す</button><button id="redo" class="quiet" title="Ctrl / Cmd + Shift + Z">↷ やり直す</button><button id="save" class="primary">↓ 透過PNGを保存</button></div>
+  </header>
+  <main class="workspace">
+    <aside class="inspector card">
+      <div class="section-heading"><span class="eyebrow">DESIGN</span><span class="badge">選択したパーツ</span></div>
+      <h2 id="selectionTitle">テキストを編集</h2>
+      <div id="emptySelection" hidden class="note">キャンバスかレイヤー一覧からパーツを選択してください。</div>
+      <div id="properties">
+        <label class="field">パーツ名<input id="name" maxlength="60"></label>
+        <div id="textFields">
+          <label class="field">ロゴの文字 <small>最大4行</small><textarea id="title" rows="3" maxlength="500"></textarea></label>
+          <label class="field">配色テンプレート<select id="preset"><option value="candy">キャンディ</option><option value="ocean">ゲームブルー</option><option value="mint">ミント</option><option value="sunset">サンセット</option><option value="night">ネオン</option></select></label>
+          <div class="swatches" aria-label="テンプレートの配色" id="swatches"></div>
+          <details><summary>フォント</summary>
+            <button id="fonts" class="secondary full">PC内のフォントを取得</button>
+            <label class="field">フォント名を検索<input id="fontSearch" type="search" placeholder="名前で絞り込む"></label>
+            <label class="field">フォント<select id="font"><option value="sans-serif">標準（sans-serif）</option></select></label>
+            <p id="fontStatus" class="note" role="status">Chrome / Edge 推奨。フォントはサーバーへ送信しません。</p>
+          </details>
+          <details open><summary>文字の色・縁取り</summary>
+            <div class="pair"><label class="field">文字の上色<input id="top" type="color"></label><label class="field">文字の下色<input id="bottom" type="color"></label><label class="field">内側の縁<input id="inner" type="color"></label><label class="field">外側の縁<input id="outer" type="color"></label></div>
+            <label class="field range-field">文字サイズ <output id="sizeV"></output><input id="size" type="range" min="20" max="240"></label>
+            <label class="field range-field">内側の縁の太さ <output id="inWidthV"></output><input id="inWidth" type="range" min="0" max="30"></label>
+            <label class="field range-field">外側の縁の太さ <output id="outWidthV"></output><input id="outWidth" type="range" min="0" max="50"></label>
+            <label class="field range-field">文字間隔 <output id="spacingV"></output><input id="spacing" type="range" min="-20" max="60"></label>
+            <label class="field range-field">立体影の距離 <output id="shadowV"></output><input id="shadow" type="range" min="0" max="50"></label>
+          </details>
+        </div>
+        <div id="sparkleFields" hidden><div class="pair"><label class="field">装飾の色<input id="fill" type="color"></label><label class="field">大きさ<input id="radius" type="number" min="4" max="200"></label></div></div>
+        <details open><summary>位置と大きさ</summary>
+          <div class="pair"><label class="field">横位置 X<input id="x" type="number" min="-10000" max="10000" step="1"></label><label class="field">縦位置 Y<input id="y" type="number" min="-10000" max="10000" step="1"></label><label class="field">拡大率 %<input id="scale" type="number" min="5" max="800" step="1"></label><label class="field">回転 °<input id="rotation" type="number" min="-180" max="180" step="1"></label></div>
+          <button id="center" class="quiet full">キャンバスの中央へ</button>
+        </details>
+      </div>
+    </aside>
+    <section class="stage">
+      <div class="stage-heading"><div><span class="eyebrow">CANVAS</span><h2>ロゴプレビュー</h2></div><span class="canvas-size">1200 × 630 px · 背景透過</span></div>
+      <div class="preview" id="preview"><canvas id="canvas" width="1200" height="630" aria-label="ロゴプレビュー"></canvas><canvas id="overlay" width="1200" height="630" tabindex="0" aria-label="パーツをクリックして選択、ドラッグして移動。矢印キーで微調整。右下のハンドルで拡大縮小。"></canvas></div>
+      <p class="canvas-help"><span class="dot"></span>クリックで選択 · ドラッグで移動 · 右下のハンドルで拡大縮小</p>
+      <p id="overflow" class="warning" hidden>キャンバスの外にある部分はPNGに含まれません。位置か拡大率を調整してください。</p>
+      <div class="quickstart card"><span class="step">01</span><div><strong>文字を入力して、配色を選ぶ。</strong><p>サブタイトルや装飾を足して、あなただけのロゴに。チェック柄と選択枠はPNGには含まれません。</p></div></div>
+      <p id="message" class="message" role="status" aria-live="polite">準備ができました。</p>
+    </section>
+    <aside class="layers-panel card">
+      <span class="eyebrow">LAYERS</span><h2>パーツと重なり</h2><p class="note">一覧の上が手前に表示されます。</p>
+      <div class="add-buttons"><button id="addText" class="secondary">＋ テキスト</button><button id="addSparkle" class="quiet">＋ キラキラ</button></div>
+      <div id="layers" class="layers" role="list" aria-label="レイヤー一覧"></div>
+      <div class="layer-tools"><button id="forward" class="quiet" title="ひとつ前面へ">↑ 前面へ</button><button id="backward" class="quiet" title="ひとつ背面へ">↓ 背面へ</button><button id="duplicate" class="quiet">複製</button><button id="remove" class="danger">削除</button></div>
+      <div class="project-section"><span class="eyebrow">PROJECT</span><h3>続きから編集する</h3><p class="note">文字・配色・配置をJSONで保存。PCのフォント本体は含みません。</p><button id="saveJson" class="secondary full">編集データを保存</button><label class="file-button">編集データを読み込む<input id="loadJson" type="file" accept=".json,application/json"></label><p class="note">試運転版の設定JSONにも対応。</p></div>
+    </aside>
+  </main>
+  <footer>POP LOGO STUDIO <span>あなたのブラウザの中で、制作から書き出しまで。</span></footer>
+  <script src="web/engine.js"></script>
+  <script src="web/app.js"></script>
+</body>
+</html>
